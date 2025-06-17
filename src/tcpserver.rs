@@ -1,4 +1,4 @@
-use std::{error, io::{Error, Read, Write}, net::{Ipv4Addr, TcpListener, TcpStream}, str::FromStr};
+use std::{io::{Read, Write}, net::{Ipv4Addr, TcpListener, TcpStream}};
 
 use crate::{commands::{check_alive, req_data, req_diag}, filecontrol::write_error};
 
@@ -23,7 +23,10 @@ pub fn receive_communication() {
             Ok(mut stream) => {
                 // Read the incoming command and the IP address + port of the sender.
                 let cmd:&mut [u8; 2048]  = &mut [0; 2048];
-                let _ = stream.read(cmd);
+                let _ = match stream.read(cmd) {
+                    Ok(a) => a,
+                    Err(error) => { eprintln!("Error while reading the socket. Error: {error}"); 0 as usize },
+                };
                 // Check if the IP address is valid and is IPv4. This program assumes we use IPv4 for all connections.
                 match stream.peer_addr() {
                     Ok(sock) if sock.is_ipv4()  => sock,
@@ -33,9 +36,9 @@ pub fn receive_communication() {
 
                 // Match the command
                 match String::from_utf8(cmd.to_vec()) {
-                    Ok(command) if command.contains("REQDIAG") => req_diag(stream),
-                    Ok(command) if command.contains("CHECKAL") => check_alive(stream),
-                    Ok(command) if command.contains("REQDATA") => req_data(stream),
+                    Ok(command) if command.contains("REQDIAG") => req_diag(&stream),
+                    Ok(command) if command.contains("CHECKAL") => check_alive(&stream),
+                    Ok(command) if command.contains("REQDATA") => req_data(&stream),
                     Ok(command)                                => {eprintln!("Non-recognized command. Error: {command}"); continue;},
                     Err(error)                          => {eprintln!("Non-utf8 command. Error: {error}"); continue;}
                 }
@@ -44,6 +47,10 @@ pub fn receive_communication() {
     }
 }
 
-pub fn send_communication(stream: TcpStream, data: &[u8]) -> Result<usize, Error> {
-    todo!()
+pub fn send_communication(stream: &mut TcpStream, data: &[u8]) {
+    match stream.write(data) {
+        Ok(a) if data.len() == a => return,
+        Ok(a)                    => { eprintln!("Error while writing to socket. Only wrote {a}/{} bytes.", data.len()); send_communication(stream, data) },
+        Err(error)               => { eprintln!("Error while writing to socket. Error: {error}"); send_communication(stream, data) },
+    };
 }
