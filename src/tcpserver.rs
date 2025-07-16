@@ -1,12 +1,12 @@
 use std::{io::{Read, Write}, net::{Ipv4Addr, TcpListener, TcpStream}};
 
-use crate::{commands::{check_alive, req_data, req_diag}, filecontrol::write_error};
+use crate::{commands::{check_alive, req_data, req_diag}, filecontrol::write_error, station::Station};
 
 // TODO: CHANGE THIS SO THAT THIS IS READ FROM A CONFIG FILE
 const SOCK_IP: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 const PORT: &str = "2537";
 
-pub fn receive_communication() {
+pub fn receive_communication(station: &mut Station) {
     let listener = match TcpListener::bind(format!("{}:{}", SOCK_IP.to_string(), PORT)) {
         Ok(a) => a,
         Err(error) => panic!("Encountered error while binding to the IP Address: {}. Error: {}", format!("{}:{}", SOCK_IP.to_string(), PORT), error)
@@ -34,11 +34,12 @@ pub fn receive_communication() {
                     Err(error)                       => { eprintln!("Invalid socket address from peer. Error: {error}"); continue; },
                 };
 
+                println!("{}", String::from_utf8(cmd.to_vec()).unwrap());
                 // Match the command
                 match String::from_utf8(cmd.to_vec()) {
-                    Ok(command) if command.contains("REQDIAG") => req_diag(&stream),
-                    Ok(command) if command.contains("CHECKAL") => check_alive(&stream),
-                    Ok(command) if command.contains("REQDATA") => req_data(&stream),
+                    Ok(command) if command.contains("REQDIAG") => req_diag(&mut stream, station),
+                    Ok(command) if command.contains("CHECKAL") => check_alive(&mut stream, station),
+                    Ok(command) if command.contains("REQDATA") => req_data(&mut stream, station),
                     Ok(command)                                => {eprintln!("Non-recognized command. Error: {command}"); continue;},
                     Err(error)                          => {eprintln!("Non-utf8 command. Error: {error}"); continue;}
                 }
