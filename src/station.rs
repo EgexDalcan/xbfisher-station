@@ -1,5 +1,6 @@
 use std::{thread, time::Duration};
 
+use chrono::{FixedOffset, Utc};
 use systemstat::{saturating_sub_bytes, Platform, System};
 
 pub struct Station {
@@ -12,57 +13,72 @@ impl Station {
         Station { sys: System::new(), last_check: 0 }
     }
 
-    pub fn get_data(&mut self) {
+    pub fn get_last_check(&mut self) -> usize {
+        return self.last_check
+    }
+
+    pub fn set_last_check(&mut self, value: usize) {
+        self.last_check = value;
+    }
+
+    // TODO: This is currently hardcoded to use Utah timezone (thanks Rust). This can be changed in the future to be flexible.
+    pub fn get_data(&mut self) -> String {
+        let utah_timezone = FixedOffset::east_opt(-6 * 3600).expect("Hardcoded.");
+        let now = Utc::now().with_timezone(&utah_timezone);
+        let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\nENDAll",
+        now.format("%d-%b-%Y %H:%M:%S"),
+        // Uptime
+        match self.sys.uptime() {
+            Ok(uptime) => format!("System Uptime:\n{:?}", uptime),
+            Err(x) => format!("Error getting uptime data: {}\n", x)
+        },
+        // Network
         match self.sys.networks() {
             Ok(netifs) => {
-                println!("\nNetworks:");
+                let mut list: String = format!("Network Data:\n");
                 for netif in netifs.values() {
-                    println!("{} ({:?})", netif.name, netif.addrs);
+                    list = list + format!("Interface:\nName: ({})\nData: ({:?})\nStatistics: ({:?})\nENDInt\n", netif.name, netif.addrs, self.sys.network_stats(&netif.name)).as_str();
                 }
+                list.trim_end().to_string()
             }
-            Err(x) => println!("\nNetworks: error: {}", x)
-        }
-
+            Err(x) => format!("Error getting network data: {}", x)
+        },
+        // Network Sockets
+        match self.sys.socket_stats() {
+            Ok(stats) => format!("System socket statistics:\n{:?}", stats),
+            Err(x) => format!("Error getting system socket statistics: {}", x)
+        },
+        // Memory
         match self.sys.memory() {
-            Ok(mem) => println!("\nMemory: {} used / {} ({} bytes) total ({:?})", saturating_sub_bytes(mem.total, mem.free), mem.total, mem.total.as_u64(), mem.platform_memory),
-            Err(x) => println!("\nMemory: error: {}", x)
-        }
-
+            Ok(mem) => format!("Memory:\n{} used / {} ({} bytes) total\nDetails: ({:?})", saturating_sub_bytes(mem.total, mem.free), mem.total, mem.total.as_u64(), mem.platform_memory),
+            Err(x) => format!("Error getting memory data: {}", x)
+        },
+        // Swap Memory
         match self.sys.swap() {
-            Ok(swap) => println!("\nSwap: {} used / {} ({} bytes) total ({:?})", saturating_sub_bytes(swap.total, swap.free), swap.total, swap.total.as_u64(), swap.platform_swap),
-            Err(x) => println!("\nSwap: error: {}", x)
-        }
-
-        match self.sys.load_average() {
-            Ok(loadavg) => println!("\nLoad average: {} {} {}", loadavg.one, loadavg.five, loadavg.fifteen),
-            Err(x) => println!("\nLoad average: error: {}", x)
-        }
-
-        match self.sys.uptime() {
-            Ok(uptime) => println!("\nUptime: {:?}", uptime),
-            Err(x) => println!("\nUptime: error: {}", x)
-        }
-
+            Ok(swap) => format!("Swap Memory:\n{} used / {} ({} bytes) total\nDetails: ({:?})", saturating_sub_bytes(swap.total, swap.free), swap.total, swap.total.as_u64(), swap.platform_swap),
+            Err(x) => format!("Error getting swap memory data: {}", x)
+        },
+        // CPU
         match self.sys.cpu_load_aggregate() {
             Ok(cpu)=> {
-                println!("\nMeasuring CPU load...");
                 thread::sleep(Duration::from_secs(1));
                 let cpu = cpu.done().unwrap();
-                println!("CPU load: {}% user, {}% nice, {}% system, {}% intr, {}% idle ",
-                    cpu.user * 100.0, cpu.nice * 100.0, cpu.system * 100.0, cpu.interrupt * 100.0, cpu.idle * 100.0);
+                format!("CPU Load:\n{}% user, {}% nice, {}% system, {}% intr, {}% idle ",
+                    cpu.user * 100.0, cpu.nice * 100.0, cpu.system * 100.0, cpu.interrupt * 100.0, cpu.idle * 100.0)
             },
-            Err(x) => println!("\nCPU load: error: {}", x)
-        }
-
+            Err(x) => format!("Error getting CPU load data {}", x)
+        },
+        // CPU Load (# of processes in the system run queue averaged over various timeframes)
+        match self.sys.load_average() {
+            Ok(loadavg) => format!("Load average (number of processes in the system run queue averaged over one, five, and fifteen minutes):\n{} {} {}", loadavg.one, loadavg.five, loadavg.fifteen),
+            Err(x) => format!("Error getting load average data {}", x)
+        },
+        // CPU Temp (only the first temperature probe if there are multiple)
         match self.sys.cpu_temp() {
-            Ok(cpu_temp) => println!("\nCPU temp: {}", cpu_temp),
-            Err(x) => println!("\nCPU temp: {}", x)
-        }
-
-        match self.sys.socket_stats() {
-            Ok(stats) => println!("\nSystem socket statistics: {:?}", stats),
-            Err(x) => println!("\nSystem socket statistics: error: {}", x)
-        }
+            Ok(cpu_temp) => format!("CPU temp:\n{}", cpu_temp),
+            Err(x) => format!("Error getting CPU temp data: {}", x)
+        });
+        return data;
     }
 }
 

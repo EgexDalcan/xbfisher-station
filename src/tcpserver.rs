@@ -51,7 +51,7 @@ pub fn receive_communication(station: &mut Station) {
 pub fn send_communication(stream: &mut TcpStream, data: &[u8]) {
     match stream.write(data) {
         Ok(a) if data.len() == a => return,
-        Ok(a)                    => { eprintln!("Error while writing to socket. Only wrote {a}/{} bytes.", data.len()); send_communication(stream, data) },
-        Err(error)               => { eprintln!("Error while writing to socket. Error: {error}"); send_communication(stream, data) },
+        Ok(a)                    => { eprintln!("Error while writing to socket. Only wrote {a}/{} bytes.\nRetrying.", data.len()); send_communication(stream, data) },
+        Err(error)               => { eprintln!("Error while writing to socket. Error: {error}.\nRetrying."); send_communication(stream, data) },
     };
 }
