@@ -17,5 +17,5 @@ pub fn write_error(error: Error){
         });
     let date_str = format!("{}_{}_{}_{}:{}", date.month(), date.day(), date.year(), date.hour(), date.minute());
     // Write.
-    writeln!(file, "{date_str}: Error while receiving connection: {error}");
+    _=writeln!(file, "{date_str}: Error while receiving connection: {error}");
 }

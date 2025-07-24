@@ -3,7 +3,7 @@ use std::{io::{Read, Write}, net::{Ipv4Addr, TcpListener, TcpStream}};
 use crate::{commands::{check_alive, req_data, req_diag}, filecontrol::write_error, station::Station};
 
 // TODO: CHANGE THIS SO THAT THIS IS READ FROM A CONFIG FILE
-const SOCK_IP: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
+const SOCK_IP: Ipv4Addr = Ipv4Addr::new(10, 8, 0, 110);
 const PORT: &str = "2537";
 
 pub fn receive_communication(station: &mut Station) {
@@ -21,8 +21,9 @@ pub fn receive_communication(station: &mut Station) {
 
             // Valid stream
             Ok(mut stream) => {
+                println!("Incoming connection from: {}", stream.peer_addr().unwrap().ip());
                 // Read the incoming command and the IP address + port of the sender.
-                let cmd:&mut [u8; 2048]  = &mut [0; 2048];
+                let cmd:&mut [u8; 8192]  = &mut [0; 8192];
                 let _ = match stream.read(cmd) {
                     Ok(a) => a,
                     Err(error) => { eprintln!("Error while reading the socket. Error: {error}"); 0 as usize },

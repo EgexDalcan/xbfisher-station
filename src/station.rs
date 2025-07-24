@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::{fs::read_to_string, thread, time::Duration};
 
 use chrono::{FixedOffset, Utc};
 use systemstat::{saturating_sub_bytes, Platform, System};
@@ -25,7 +25,7 @@ impl Station {
     pub fn get_data(&mut self) -> String {
         let utah_timezone = FixedOffset::east_opt(-6 * 3600).expect("Hardcoded.");
         let now = Utc::now().with_timezone(&utah_timezone);
-        let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\nENDAll",
+        let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nENDAll",
         now.format("%d-%b-%Y %H:%M:%S"),
         // Uptime
         match self.sys.uptime() {
@@ -75,7 +75,11 @@ impl Station {
         },
         // CPU Temp (only the first temperature probe if there are multiple)
         match self.sys.cpu_temp() {
-            Ok(cpu_temp) => format!("CPU temp:\n{}", cpu_temp),
+            Ok(cpu_temp) if cpu_temp > -100.0 => format!("CPU temp:\n{}", cpu_temp),
+            Ok(cpu_temp) => match read_to_string("/sys/class/thermal/thermal_zone1/temp") {
+                Ok(a) => {format!("CPU temp:\n{}", a.parse::<f32>().expect("This file always only has numbers written in.") / 1000.0)},
+                Err(_) => {eprintln!("Error while getting CPU temp data: thermal_zone0 is reading < -100 and there is no other thermal zone."); format!("CPU temp:\n{}", cpu_temp)},
+            },
             Err(x) => format!("Error getting CPU temp data: {}", x)
         });
         return data;
