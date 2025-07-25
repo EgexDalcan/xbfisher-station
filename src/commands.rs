@@ -5,7 +5,6 @@ use crate::{station::Station, tcpserver::send_communication};
 pub fn req_diag(stream: &mut TcpStream, station: &mut Station) {
     station.set_last_check(0);
     let diag_data = station.get_data();
-    println!("{}", diag_data);
     send_communication(stream, diag_data.as_bytes());
 }
 

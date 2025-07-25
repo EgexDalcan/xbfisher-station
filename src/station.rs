@@ -77,7 +77,7 @@ impl Station {
         match self.sys.cpu_temp() {
             Ok(cpu_temp) if cpu_temp > -100.0 => format!("CPU temp:\n{}", cpu_temp),
             Ok(cpu_temp) => match read_to_string("/sys/class/thermal/thermal_zone1/temp") {
-                Ok(a) => {format!("CPU temp:\n{}", a.parse::<f32>().expect("This file always only has numbers written in.") / 1000.0)},
+                Ok(a) => {format!("CPU temp:\n{}", a.trim().parse::<f32>().expect("This file always only has numbers written in") / 1000.0)},
                 Err(_) => {eprintln!("Error while getting CPU temp data: thermal_zone0 is reading < -100 and there is no other thermal zone."); format!("CPU temp:\n{}", cpu_temp)},
             },
             Err(x) => format!("Error getting CPU temp data: {}", x)
