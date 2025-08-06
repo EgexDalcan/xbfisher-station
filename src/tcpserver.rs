@@ -1,15 +1,13 @@
-use std::{io::{Read, Write}, net::{Ipv4Addr, TcpListener, TcpStream}};
+use std::{io::{Read, Write}, net::{TcpListener, TcpStream}};
 
-use crate::{commands::{check_alive, req_data, req_diag}, filecontrol::write_error, station::Station};
+use crate::{commands::{check_alive, req_diag}, filecontrol::ConfigData, station::Station};
 
-// TODO: CHANGE THIS SO THAT THIS IS READ FROM A CONFIG FILE
-const SOCK_IP: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
-const PORT: &str = "2537";
-
-pub fn receive_communication(station: &mut Station) {
-    let listener = match TcpListener::bind(format!("{}:{}", SOCK_IP.to_string(), PORT)) {
+pub fn receive_communication(station: &mut Station, config: &ConfigData) {
+    let sock_ip = config.get_sock_ip();
+    let port = config.get_port();
+    let listener = match TcpListener::bind(format!("{}:{}", sock_ip.to_string(), port)) {
         Ok(a) => a,
-        Err(error) => panic!("Encountered error while binding to the IP Address: {}. Error: {}", format!("{}:{}", SOCK_IP.to_string(), PORT), error)
+        Err(error) => panic!("Encountered error while binding to the IP Address: {}. Error: {}", format!("{}:{}", sock_ip.to_string(), port), error)
     };
     
     println!("Listening started, ready to accept.");
@@ -17,7 +15,7 @@ pub fn receive_communication(station: &mut Station) {
     for stream in listener.incoming() {
         match stream {
             // Invalid stream
-            Err(e) => {eprintln!("Bad connection request! Error: {e}"); write_error(e);},
+            Err(e) => eprintln!("Bad connection request! Error: {e}"),
 
             // Valid stream
             Ok(mut stream) => {
@@ -40,7 +38,6 @@ pub fn receive_communication(station: &mut Station) {
                 match String::from_utf8(cmd.to_vec()) {
                     Ok(command) if command.contains("REQDIAG") => req_diag(&mut stream, station),
                     Ok(command) if command.contains("CHECKAL") => check_alive(&mut stream, station),
-                    Ok(command) if command.contains("REQDATA") => req_data(&mut stream, station),
                     Ok(command)                                => {eprintln!("Non-recognized command. Error: {command}"); continue;},
                     Err(error)                          => {eprintln!("Non-utf8 command. Error: {error}"); continue;}
                 }

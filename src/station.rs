@@ -1,6 +1,5 @@
-use std::{fs::read_to_string, thread, time::Duration};
+use std::{fs::read_to_string, thread, time::{Duration, SystemTime}};
 
-use chrono::{FixedOffset, Utc};
 use systemstat::{saturating_sub_bytes, Platform, System};
 
 pub struct Station {
@@ -21,12 +20,10 @@ impl Station {
         self.last_check = value;
     }
 
-    // TODO: This is currently hardcoded to use Utah timezone (thanks Rust). This can be changed in the future to be flexible.
     pub fn get_data(&mut self) -> String {
-        let utah_timezone = FixedOffset::east_opt(-6 * 3600).expect("Hardcoded.");
-        let now = Utc::now().with_timezone(&utah_timezone);
+        let date = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("The system clock shows time before UNIX EPOCH!");
         let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nENDAll",
-        now.format("%d-%b-%Y %H:%M:%S"),
+        date.as_secs(),
         // Uptime
         match self.sys.uptime() {
             Ok(uptime) => format!("System Uptime:\n{:?}", uptime),

@@ -13,8 +13,3 @@ pub fn check_alive(stream: &mut TcpStream, station: &mut Station) {
     let msg = String::from_str("ALIVE").expect("Hardcoded.");
     send_communication(stream, msg.as_bytes());
 }
-
-pub fn req_data(stream: &mut TcpStream, station: &Station) {
-    todo!()
-}
-
