@@ -1,15 +1,17 @@
 use std::{fs::read_to_string, thread, time::{Duration, SystemTime}};
 
+use sysinfo::Disks;
 use systemstat::{saturating_sub_bytes, Platform, System};
 
 pub struct Station {
     sys: System,
+    disks: Disks,
     last_check: usize,
 }
 
 impl Station {
     pub fn new() -> Station {
-        Station { sys: System::new(), last_check: 0 }
+        Station { sys: System::new(), disks: Disks::new_with_refreshed_list(), last_check: 0 }
     }
 
     pub fn get_last_check(&mut self) -> usize {
@@ -22,7 +24,7 @@ impl Station {
 
     pub fn get_data(&mut self) -> String {
         let date = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("The system clock shows time before UNIX EPOCH!");
-        let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nENDAll",
+        let data: String = format!("StartDiag\nDate:\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nEnd\n{}\nENDAll",
         date.as_secs(),
         // Uptime
         match self.sys.uptime() {
@@ -47,12 +49,12 @@ impl Station {
         },
         // Memory
         match self.sys.memory() {
-            Ok(mem) => format!("Memory:\n{} used / {} ({} bytes) total\nDetails: ({:?})", saturating_sub_bytes(mem.total, mem.free), mem.total, mem.total.as_u64(), mem.platform_memory),
+            Ok(mem) => format!("Memory:\n{} / {} total\nDetails: ({:?})", saturating_sub_bytes(mem.total, mem.free), mem.total, mem.platform_memory),
             Err(x) => format!("Error getting memory data: {}", x)
         },
         // Swap Memory
         match self.sys.swap() {
-            Ok(swap) => format!("Swap Memory:\n{} used / {} ({} bytes) total\nDetails: ({:?})", saturating_sub_bytes(swap.total, swap.free), swap.total, swap.total.as_u64(), swap.platform_swap),
+            Ok(swap) => format!("Swap Memory:\n{} / {} total\nDetails: ({:?})", saturating_sub_bytes(swap.total, swap.free), swap.total, swap.platform_swap),
             Err(x) => format!("Error getting swap memory data: {}", x)
         },
         // CPU
@@ -78,7 +80,17 @@ impl Station {
                 Err(_) => {eprintln!("Error while getting CPU temp data: thermal_zone0 is reading < -100 and there is no other thermal zone."); format!("CPU temp:\n{}", cpu_temp)},
             },
             Err(x) => format!("Error getting CPU temp data: {}", x)
-        });
+        },
+        // Disk Space
+        {
+            let mut list = format!("Disk Data:\n");
+            for disk in &self.disks {
+                list = list + format!("Disk: {:?} usage: {:?} / {}\nENDDisk\n", disk.name(), (disk.total_space() - disk.available_space()), disk.total_space()).as_str();
+            }
+            list
+        }
+        
+        );
         return data;
     }
 }
