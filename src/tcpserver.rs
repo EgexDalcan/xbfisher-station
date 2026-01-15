@@ -1,6 +1,10 @@
 use std::{io::{Read, Write}, net::{TcpListener, TcpStream}};
+use crate::{commands::{check_alive, req_diag}, filecontrol::ConfigData, station::{DataToSend, Station}};
 
-use crate::{commands::{check_alive, req_diag}, filecontrol::ConfigData, station::Station};
+pub enum Msg {
+    DiagDataBin(DataToSend),
+    CheckAlive
+}
 
 pub fn receive_communication(station: &mut Station, config: &ConfigData) {
     let sock_ip = config.get_sock_ip();
@@ -19,7 +23,6 @@ pub fn receive_communication(station: &mut Station, config: &ConfigData) {
 
             // Valid stream
             Ok(mut stream) => {
-                println!("Incoming connection from: {}", stream.peer_addr().unwrap().ip());
                 // Read the incoming command and the IP address + port of the sender.
                 let cmd:&mut [u8; 256]  = &mut [0; 256];
                 let _ = match stream.read(cmd) {
@@ -33,7 +36,6 @@ pub fn receive_communication(station: &mut Station, config: &ConfigData) {
                     Err(error)                       => { eprintln!("Invalid socket address from peer. Error: {error}"); continue; },
                 };
 
-                println!("{}", String::from_utf8(cmd.to_vec()).unwrap());
                 // Match the command
                 match String::from_utf8(cmd.to_vec()) {
                     Ok(command) if command.contains("REQDIAG") => req_diag(&mut stream, station),
@@ -46,10 +48,24 @@ pub fn receive_communication(station: &mut Station, config: &ConfigData) {
     }
 }
 
-pub fn send_communication(stream: &mut TcpStream, data: &[u8]) {
-    match stream.write(data) {
-        Ok(a) if data.len() == a => return,
-        Ok(a)                    => { eprintln!("Error while writing to socket. Only wrote {a}/{} bytes.\nRetrying.", data.len()); send_communication(stream, data) },
-        Err(error)               => { eprintln!("Error while writing to socket. Error: {error}.\nRetrying."); send_communication(stream, data) },
-    };
+pub fn send_communication(stream: &mut TcpStream, data: Msg) {
+    match data {
+        Msg::DiagDataBin(diag_data) => {
+            let config = bincode::config::standard();
+            match bincode::encode_into_std_write(&diag_data, stream, config) {
+                Ok(_) => return,
+                Err(error)                => { eprintln!("Error while writing to socket. Error: {error}."); },
+            };
+        },
+        
+        Msg::CheckAlive => {
+            let msg = "ALIVE".as_bytes();
+            match stream.write(msg) {
+                Ok(_) => return,
+                Err(error)               => { eprintln!("Error while writing to socket. Error: {error}."); },
+            };
+        }
+    }
+
+    
 }
